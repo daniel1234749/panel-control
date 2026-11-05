@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Ventas Emanuel</title>
+<script src="chart.umd.js"></script>
+<script src="data.js"></script>
+<script src="data_reparto.js"></script>
+<script src="data_retiros.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.10); --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18; --text2: #5f5e5a; --text3: #888780;
+    --blue: #3266ad; --green: #1D9E75; --orange: #D85A30;
+    --purple: #7F77DD; --red: #E24B4A; --r-md: 8px; --r-lg: 12px;
+  }
+  html.dark {
+    --bg: #1c1c1a; --surface: #252523; --surface2: #2e2e2b;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+    --text: #e8e6dc; --text2: #9c9a92; --text3: #6e6c66;
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not(.light) {
+      --bg: #1c1c1a; --surface: #252523; --surface2: #2e2e2b;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+      --text: #e8e6dc; --text2: #9c9a92; --text3: #6e6c66;
+    }
+  }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; min-height: 100vh; transition: background .2s, color .2s; }
+  header { background: var(--surface); border-bottom: 0.5px solid var(--border2); padding: 14px 24px; display: flex; align-items: center; gap: 16px; justify-content: space-between; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header span { font-size: 12px; color: var(--text2); }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .ctrl-lbl { font-size: 12px; color: var(--text2); }
+  select { font-size: 12px; padding: 5px 10px; border-radius: var(--r-md); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); cursor: pointer; }
+  .tab-bar { display: flex; gap: 4px; margin-left: auto; }
+  .tab { font-size: 12px; padding: 5px 14px; border-radius: var(--r-md); border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; }
+  .tab.active { background: #dbeafe; color: #1e40af; border-color: transparent; font-weight: 500; }
+  html.dark .tab.active, html:not(.light) .tab.active { background: #1e3a5f !important; color: #93c5fd !important; }
+  @media (prefers-color-scheme: dark) { html:not(.light) .tab.active { background: #1e3a5f; color: #93c5fd; } }
+
+  .page-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+  .page-tab { font-size: 13px; padding: 8px 16px; border-radius: var(--r-md); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; font-weight: 500; }
+  .page-tab.active { background: #dbeafe; color: #1e40af; border-color: transparent; }
+  html.dark .page-tab.active, html:not(.light) .page-tab.active { background: #1e3a5f !important; color: #93c5fd !important; }
+
+  .btn-action { font-size: 12px; padding: 6px 13px; border-radius: var(--r-md); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: 500; white-space: nowrap; transition: background .15s; }
+  .btn-action:hover { background: var(--surface2); }
+
+  /* Botón de ícono (impresora) dentro de las tarjetas */
+  .btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border-radius: var(--r-md); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; transition: background .15s, color .15s; }
+  .btn-icon:hover { background: var(--surface2); color: var(--text); }
+  .btn-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--surface2); border-radius: var(--r-md); padding: 12px 14px; }
+  .kpi-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .kpi-val { font-size: 22px; font-weight: 600; color: var(--text); }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .kpi.alert { background: #FAECE7; }
+  .kpi.alert .kpi-lbl { color: #993C1D; }
+  .kpi.alert .kpi-val { color: #712B13; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 3px; }
+
+  .table-wrap { overflow-x: auto; border-radius: var(--r-md); border: 0.5px solid var(--border); }
+  .comp-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .comp-table thead th { font-weight: 700; color: var(--text2); padding: 9px 12px; text-align: right; border-bottom: 1.5px solid var(--border2); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; background: var(--surface2); }
+  .comp-table th:first-child { text-align: left; }
+  .comp-table td { padding: 8px 12px; text-align: right; border-bottom: 0.5px solid var(--border); color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .comp-table td:first-child { text-align: left; color: var(--text); font-weight: 600; font-variant-numeric: normal; }
+  .comp-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface2) 45%, transparent); }
+  .comp-table tr:last-child td { font-weight: 700; font-size: 15px; background: color-mix(in srgb, var(--blue) 10%, var(--surface)); border-top: 2px solid var(--blue); border-bottom: none; }
+  .comp-table tr:last-child td:first-child { border-left: 3px solid var(--blue); padding-left: 9px; }
+  .comp-table tr:not(:last-child):hover td { background: var(--surface2); }
+  .best { color: #1D9E75; font-weight: 600; }
+  .worst { color: #E24B4A; font-weight: 600; }
+
+  .hbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .hbar-lbl { font-size: 11px; color: var(--text2); width: 110px; text-align: right; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 20px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 10px; font-weight: 600; color: #fff; transition: width .4s; }
+  .hbar-amt { font-size: 11px; color: var(--text2); width: 90px; text-align: right; flex-shrink: 0; }
+
+  .proj-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 0.5px solid var(--border); }
+  .proj-key { color: var(--text2); font-size: 12px; }
+  .proj-val { font-size: 13px; font-weight: 600; color: var(--text); }
+  .proj-big { font-size: 20px; color: var(--blue); }
+  input[type=range] { width: 100%; accent-color: var(--blue); }
+
+  .alert-box { background: #FCEBEB; border: 0.5px solid #F7C1C1; border-radius: var(--r-lg); padding: 12px; margin-bottom: 12px; }
+  .alert-box .alert-title { font-size: 12px; font-weight: 600; color: #791F1F; margin-bottom: 8px; }
+  .alert-box ul { font-size: 11px; color: #791F1F; margin: 0; padding-left: 18px; }
+  .alert-box li { margin-bottom: 4px; }
+
+  .note-box { background: var(--surface2); border-left: 3px solid var(--blue); border-radius: 0 var(--r-md) var(--r-md) 0; padding: 10px 14px; margin-top: 12px; }
+  .note-box .note-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .note-box ul { font-size: 11px; color: var(--text2); margin: 0; padding-left: 18px; line-height: 1.6; }
+  .note-box li { margin-bottom: 4px; }
+  .note-box b { color: var(--text); font-weight: 600; }
+
+  .print-only { display: none; }
+  .empty-state { padding: 40px 20px; text-align: center; color: var(--text2); font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .grid-kpi { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; }
+    .header-right { width: 100%; flex-wrap: wrap; }
+  }
+
+  /* ========== IMPRESIÓN ========== */
+  @media print {
+    :root, html, html.dark, html.light {
+      --bg: #ffffff !important; --surface: #ffffff !important; --surface2: #f3f2ee !important;
+      --border: rgba(0,0,0,0.12) !important; --border2: rgba(0,0,0,0.22) !important;
+      --text: #1a1a18 !important; --text2: #5f5e5a !important; --text3: #78766f !important;
+    }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #ffffff !important; color: #1a1a18 !important; font-size: 11px; }
+    .no-print, .controls, .btn-action, .btn-icon, .page-tabs { display: none !important; }
+    .print-only { display: block !important; }
+    header { border-bottom: 1px solid #ccc; padding: 0 0 10px 0; margin-bottom: 12px; }
+    header h1 { font-size: 18px; color: #1a1a18; }
+    .main { padding: 0; max-width: 100%; }
+    .card { border: 1px solid #ddd; box-shadow: none; break-inside: avoid; page-break-inside: avoid; }
+    .kpi { border: 1px solid #e5e5e0; }
+    .kpi.alert { background: #FAECE7 !important; }
+    .grid-kpi { grid-template-columns: repeat(4, 1fr) !important; }
+    .grid-2 { grid-template-columns: 1fr 1fr !important; }
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr !important; }
+    canvas { max-width: 100% !important; }
+    @page { size: A4 landscape; margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 Dashboard Ventas Emanuel</h1>
+  <div class="header-right">
+    <span id="header-sub">Cargando…</span>
+    <button class="btn-action no-print" id="btn-tema" onclick="toggleTema()">🌙 Oscuro</button>
+    <button class="btn-action no-print" onclick="window.print()">🖨️ Imprimir</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="page-tabs no-print">
+    <button class="page-tab active" id="pgtab-suc" onclick="setPage('suc')">📊 Sucursales</button>
+    <button class="page-tab" id="pgtab-rep" onclick="setPage('reparto')">🚚 Reparto Tucumán</button>
+    <button class="page-tab" id="pgtab-fin" onclick="setPage('finanzas')">💰 Finanzas Personales</button>
+  </div>
+
+  <!-- ============== PÁGINA: SUCURSALES ============== -->
+  <div id="page-suc">
+    <div id="print-info" class="print-only" style="font-size:11px;color:#5f5e5a;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #ddd;"></div>
+
+    <div class="controls">
+      <span class="ctrl-lbl">Sucursal:</span>
+      <select id="sel-suc" onchange="update()">
+        <option value="all">Todas</option>
+        <option value="FAIR">FAIR</option>
+        <option value="BURZACO">BURZACO</option>
+        <option value="KORN">KORN</option>
+        <option value="TUCUMAN">TUCUMAN</option>
+      </select>
+      <span class="ctrl-lbl">Año (evolución):</span>
+      <select id="sel-year" onchange="update()">
+        <option value="all">Todos</option>
+      </select>
+      <div class="tab-bar">
+        <button class="tab active" id="tab-t" onclick="setMetric('ticket')">Ticket</button>
+        <button class="tab" id="tab-p" onclick="setMetric('pesos')">Pesos</button>
+      </div>
+    </div>
+
+    <div id="alert-container"></div>
+    <div class="grid-kpi" id="kpis"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Evolución mensual por año</div>
+        <div class="legend" id="evol-leg"></div>
+        <div style="position:relative;height:200px"><canvas id="cEvol"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Comparativo anual por mes</div>
+        <div class="table-wrap"><table class="comp-table" id="tComp"></table></div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-title" id="hbar-title">Venta último mes — por sucursal</div>
+        <div id="hbars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span id="pie-title">Participación (año en curso)</span>
+          <div class="tab-bar no-print" style="margin-left:0">
+            <button class="tab active" id="pie-tab-t" onclick="setPieMetric('ticket')">Tickets</button>
+            <button class="tab" id="pie-tab-p" onclick="setPieMetric('pesos')">Pesos</button>
+          </div>
+        </div>
+        <div class="legend" id="pie-leg"></div>
+        <div style="position:relative;height:170px"><canvas id="cPie"></canvas></div>
+      </div>
+      <div class="card no-print">
+        <div class="card-title">Proyección mensual</div>
+        <div style="margin-bottom:10px">
+          <div class="ctrl-lbl" style="margin-bottom:4px">Mes de referencia:</div>
+          <select id="sel-mes" onchange="updateProj()" style="width:100%"></select>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="ctrl-lbl" style="margin-bottom:4px">Días transcurridos: <span id="dias-val" style="font-weight:600;color:var(--text)">19</span></div>
+          <input type="range" min="1" max="31" value="19" id="sl-dias" oninput="document.getElementById('dias-val').textContent=this.value; updateProj()">
+        </div>
+        <div id="proj-rows"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Comparativo ticket anual — todos los meses</div>
+      <div class="legend" id="anual-leg"></div>
+      <div style="position:relative;height:200px"><canvas id="cAnual"></canvas></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Análisis de volatilidad por sucursal</div>
+      <div class="table-wrap"><table class="comp-table" id="tVolatility"></table></div>
+      <div class="note-box">
+        <div class="note-title">ℹ️ Cómo leer este análisis</div>
+        <ul>
+          <li>El coeficiente de variación mide qué tan parejas son las ventas mes a mes, <b>no si el negocio va bien o mal</b>.</li>
+          <li>Un CV alto puede ser <b>estacionalidad normal</b> (ej. diciembre siempre más alto).</li>
+          <li>Esta tabla siempre compara <b>las 4 sucursales</b>, sin importar el filtro de arriba.</li>
+          <li>Se calcula sobre <b id="note-nmeses">—</b> meses por sucursal.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== PÁGINA: REPARTO TUCUMÁN ============== -->
+  <div id="page-reparto" style="display:none">
+    <div id="print-info-rep" class="print-only" style="font-size:11px;color:#5f5e5a;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #ddd;"></div>
+
+    <div id="rep-content">
+      <div id="alert-reparto"></div>
+      <div class="grid-kpi" id="rep-kpis"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Evolución mensual — Monto vendido y cantidad de ventas</div>
+          <div class="legend" id="rep-evol-leg"></div>
+          <div style="position:relative;height:210px"><canvas id="cRepMonto"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Evolución mensual — Clientes atendidos</div>
+          <div style="position:relative;height:210px"><canvas id="cRepClientes"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Detalle mensual del reparto</div>
+          <div class="table-wrap"><table class="comp-table" id="tRepMensual"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Top 10 clientes (por monto vendido, histórico)</div>
+          <div id="rep-topclientes"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Clientes por mes</div>
+        <div class="controls no-print" style="margin-bottom:12px">
+          <span class="ctrl-lbl" style="font-size:13px">Mes:</span>
+          <select id="rep-sel-mes" onchange="updateRepClientesMes()" style="font-size:13px;padding:6px 12px"></select>
+          <span id="rep-mes-resumen" style="margin-left:auto;font-size:13px;font-weight:600;color:var(--text)"></span>
+        </div>
+        <div class="table-wrap"><table class="comp-table" id="tRepClientesMes"></table></div>
+      </div>
+
+      <div class="note-box">
+        <div class="note-title">ℹ️ Sobre estos datos</div>
+        <ul>
+          <li>Se basa en <b id="rep-nventas">—</b> ventas registradas del reparto de Tucumán, entre <b id="rep-rango">—</b>.</li>
+          <li>"Clientes atendidos" cuenta clientes <b>únicos por mes</b> — si un cliente compra 3 veces en el mismo mes, cuenta una sola vez.</li>
+          <li>"% Cobrado" indica qué porción de lo vendido en ese mes ya fue cobrada; el mes en curso suele estar bajo porque todavía se está cobrando.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="rep-empty" class="empty-state" style="display:none">
+      No se encontró <b>data_reparto.js</b>. Corré <code>python convertir_reparto.py</code> en la carpeta del reparto y volvé a abrir este archivo.
+    </div>
+  </div>
+
+  <!-- ============== PÁGINA: FINANZAS PERSONALES ============== -->
+  <div id="page-finanzas" style="display:none">
+    <div id="print-info-fin" class="print-only" style="font-size:11px;color:#5f5e5a;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #ddd;"></div>
+
+    <div id="fin-content">
+      <div class="controls no-print" style="margin-bottom:16px">
+        <span class="ctrl-lbl">Límite mensual:</span>
+        <span class="ctrl-lbl" style="font-weight:600">$</span>
+        <input type="number" id="fin-limite" value="3700000" step="50000" style="font-size:12px;padding:5px 10px;border-radius:var(--r-md);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);width:130px" onchange="updateFinanzas()">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:8px">
+          <input type="checkbox" id="fin-excluir-aguinaldo" checked onchange="updateFinanzas()"> Excluir Jun/Dic (aguinaldo) del promedio
+        </label>
+      </div>
+
+      <div id="alert-finanzas"></div>
+      <div class="grid-kpi" id="fin-kpis"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Retiros mensuales vs. límite</div>
+          <div class="legend" id="fin-evol-leg"></div>
+          <div style="position:relative;height:220px"><canvas id="cFinEvol"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Detalle mensual</span>
+            <button class="btn-icon no-print" onclick="window.print()" title="Imprimir retiros" aria-label="Imprimir retiros">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            </button>
+          </div>
+          <div class="table-wrap"><table class="comp-table" id="tFinMensual"></table></div>
+        </div>
+      </div>
+
+      <div class="note-box">
+        <div class="note-title">ℹ️ Cómo usar esta sección</div>
+        <ul>
+          <li>"Retiro" y "Transf. Burzaco" son los dos conceptos que cargás en tu Excel de retiros — el "Total" es la suma de ambos.</li>
+          <li>Las filas en rojo en la tabla superaron el límite mensual que definiste arriba.</li>
+          <li><b>Junio y Diciembre</b> incluyen el medio aguinaldo — con el check activado, esos meses no cuentan para el promedio ni para "meses excedidos", así ves tu gasto de base real.</li>
+          <li>Esta sección es privada tuya — al no estar la app desplegada (la corrés en Live Server, en tu PC), estos datos no salen de tu computadora.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="fin-empty" class="empty-state" style="display:none">
+      No se encontró <b>data_retiros.js</b>. Corré <code>python convertir_retiros.py</code> en la carpeta con tu Excel de retiros y volvé a abrir este archivo.
+    </div>
+  </div>
+
+</div>
+
+<script>
+const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const MESES_ABR = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const MESES_DIAS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const SUCS = ["FAIR","KORN","TUCUMAN","BURZACO"];
+const SC = { FAIR:"#3266ad", KORN:"#D85A30", TUCUMAN:"#7F77DD", BURZACO:"#1D9E75" };
+const YC = { 2023:"#3266ad", 2024:"#1D9E75", 2025:"#D85A30", 2026:"#7F77DD" };
+const EXTRA = ["#7F77DD","#D4537E","#BA7517","#639922"];
+
+let metric = 'ticket';
+let pieMetric = 'ticket';
+let cEvol = null, cPie = null, cAnual = null;
+let cRepMonto = null, cRepClientes = null;
+let cFinEvol = null;
+let currentPage = 'suc';
+
+// ── Tema claro / oscuro ───────────────────────────────────────────────────────
+function toggleTema() {
+  const html = document.documentElement;
+  const btn = document.getElementById('btn-tema');
+  if (html.classList.contains('dark')) {
+    html.classList.remove('dark'); html.classList.add('light');
+    btn.textContent = '🌙 Oscuro';
+    localStorage.setItem('tema-emanuel', 'light');
+  } else {
+    html.classList.remove('light'); html.classList.add('dark');
+    btn.textContent = '☀️ Claro';
+    localStorage.setItem('tema-emanuel', 'dark');
+  }
+}
+
+(function aplicarTemaGuardado() {
+  const guardado = localStorage.getItem('tema-emanuel');
+  const html = document.documentElement;
+  const prefereDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (guardado === 'dark' || (!guardado && prefereDark)) html.classList.add('dark');
+  else html.classList.add('light');
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btn-tema');
+    if (btn) btn.textContent = html.classList.contains('dark') ? '☀️ Claro' : '🌙 Oscuro';
+  });
+})();
+
+// ── Navegación entre páginas ──────────────────────────────────────────────────
+function setPage(page) {
+  currentPage = page;
+  document.getElementById('page-suc').style.display = page === 'suc' ? '' : 'none';
+  document.getElementById('page-reparto').style.display = page === 'reparto' ? '' : 'none';
+  document.getElementById('page-finanzas').style.display = page === 'finanzas' ? '' : 'none';
+  document.getElementById('pgtab-suc').className = 'page-tab' + (page === 'suc' ? ' active' : '');
+  document.getElementById('pgtab-rep').className = 'page-tab' + (page === 'reparto' ? ' active' : '');
+  document.getElementById('pgtab-fin').className = 'page-tab' + (page === 'finanzas' ? ' active' : '');
+  if (page === 'reparto') updateReparto();
+  if (page === 'finanzas') updateFinanzas();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function gv(d) { return metric === 'ticket' ? d.t : d.i; }
+function fmtT(v) { return Math.round(v).toLocaleString('es-AR'); }
+function fmtI(v) { return '$' + Math.round(v).toLocaleString('es-AR'); }
+function fmt(v) { return metric === 'ticket' ? fmtT(v) : fmtI(v); }
+function fmtEje(v) {
+  if (metric === 'ticket') return fmtT(v);
+  if (v >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + Math.round(v/1e6) + 'M';
+  return fmtI(v);
+}
+function fmtCorto(v) {
+  if (v >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + Math.round(v/1e3) + 'K';
+  return '$' + Math.round(v);
+}
+
+function agg(data, keys) {
+  const map = {};
+  data.forEach(d => {
+    const k = keys.map(k => d[k]).join('|');
+    if (!map[k]) { map[k] = { t:0, i:0 }; keys.forEach(k2 => map[k][k2] = d[k2]); }
+    map[k].t += d.t; map[k].i += d.i;
+  });
+  return Object.values(map);
+}
+
+function filter() {
+  const sc = document.getElementById('sel-suc').value;
+  return RAW.filter(d => sc === 'all' || d.s === sc);
+}
+
+function makeLeg(id, items) {
+  document.getElementById(id).innerHTML = items.map(([lbl, col]) =>
+    `<span style="display:flex;align-items:center;gap:3px"><span class="leg-sq" style="background:${col}"></span>${lbl}</span>`
+  ).join('');
+}
+
+function setMetric(m) {
+  metric = m;
+  document.getElementById('tab-t').className = 'tab' + (m === 'ticket' ? ' active' : '');
+  document.getElementById('tab-p').className = 'tab' + (m === 'pesos' ? ' active' : '');
+  update();
+}
+
+function setPieMetric(m) {
+  pieMetric = m;
+  document.getElementById('pie-tab-t').className = 'tab' + (m === 'ticket' ? ' active' : '');
+  document.getElementById('pie-tab-p').className = 'tab' + (m === 'pesos' ? ' active' : '');
+  update();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  if (typeof RAW === 'undefined' || RAW.length === 0) {
+    document.querySelector('header h1').textContent = '⚠️ data.js no encontrado';
+    document.getElementById('header-sub').textContent = 'Corré: python convertir.py';
+    return;
+  }
+  const years = [...new Set(RAW.map(d => d.a))].sort();
+  const sel = document.getElementById('sel-year');
+  years.forEach(y => {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y; sel.appendChild(o);
+    if (!YC[y]) YC[y] = EXTRA[years.indexOf(y) % EXTRA.length];
+  });
+  const lastYear = Math.max(...years);
+  const mesesDisp = [...new Set(RAW.filter(d => d.a === lastYear).map(d => d.m))];
+  const sel2 = document.getElementById('sel-mes');
+  [...mesesDisp].reverse().forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m + ' ' + lastYear; sel2.appendChild(o);
+  });
+  const lastMes = mesesDisp[mesesDisp.length - 1];
+  document.getElementById('sl-dias').max = MESES_DIAS[MESES.indexOf(lastMes)] || 31;
+  document.getElementById('header-sub').textContent =
+    `${RAW.length} registros · ${years[0]}–${years[years.length-1]} · ${[...new Set(RAW.map(d=>d.s))].join(', ')}`;
+  update();
+}
+
+// ── Update principal (página Sucursales) ───────────────────────────────────────
+function update() {
+  const data = filter();
+  const sc = document.getElementById('sel-suc').value;
+  const yr = document.getElementById('sel-year').value;
+  const years = [...new Set(RAW.map(d => d.a))].sort();
+  const lastYear = Math.max(...years);
+  const lastMeses = [...new Set(RAW.filter(d => d.a === lastYear).map(d => d.m))];
+  const lastMes = lastMeses.sort((a,b) => MESES.indexOf(a) - MESES.indexOf(b)).pop();
+
+  const fecha = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const pi = document.getElementById('print-info');
+  if (pi) pi.innerHTML = `Sucursal: <b>${sc==='all'?'Todas':sc}</b> &nbsp;·&nbsp; Métrica: <b>${metric==='ticket'?'Tickets':'Pesos'}</b> &nbsp;·&nbsp; Generado: <b>${fecha}</b>`;
+
+  const dly = data.filter(d => d.a === lastYear);
+  const dpy = data.filter(d => d.a === lastYear - 1);
+  const totTly = dly.reduce((a,d) => a+d.t, 0);
+  const totIly = dly.reduce((a,d) => a+d.i, 0);
+  const mLY = [...new Set(dly.map(d => d.m))];
+  const totTpy = dpy.filter(d => mLY.includes(d.m)).reduce((a,d) => a+d.t, 0);
+  const varT = totTpy > 0 ? ((totTly - totTpy) / totTpy * 100) : 0;
+  document.getElementById('alert-container').innerHTML = varT < -20
+    ? `<div class="alert-box"><div class="alert-title">⚠️ Caída de ${Math.abs(Math.round(varT))}% vs ${lastYear-1}</div><ul><li>Comparando mismos meses disponibles</li></ul></div>` : '';
+
+  const bestSuc = agg(data, ['s']).sort((a,b) => b.t - a.t)[0];
+  const histT = data.reduce((a,d) => a+d.t, 0);
+  const varTfmt = parseFloat(varT).toFixed(1);
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">Tickets ${lastYear}</div><div class="kpi-val">${fmtT(totTly)}</div><div class="kpi-sub" style="color:${varT>=0?'#1D9E75':'#E24B4A'}">${varT>=0?'▲':'▼'} ${Math.abs(varTfmt)}% vs ${lastYear-1}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Venta ${lastYear} en $</div><div class="kpi-val" style="font-size:15px">${fmtI(totIly)}</div><div class="kpi-sub">importe acumulado</div></div>
+    <div class="kpi"><div class="kpi-lbl">Total histórico</div><div class="kpi-val">${fmtT(histT)}</div><div class="kpi-sub">tickets ${years[0]}–${lastYear}</div></div>
+    <div class="kpi ${varT < -20 ? 'alert' : ''}"><div class="kpi-lbl">Sucursal líder</div><div class="kpi-val" style="font-size:16px">${bestSuc?bestSuc.s:'-'}</div><div class="kpi-sub">${bestSuc?fmtT(bestSuc.t)+' tickets':''}</div></div>`;
+
+  const yrs = yr === 'all' ? years : [parseInt(yr)];
+  const evolDs = yrs.map(y => {
+    const ydata = data.filter(d => d.a === y);
+    return {
+      label: String(y),
+      data: MESES.map(m => { const ag = ydata.filter(d => d.m === m); return ag.length ? ag.reduce((a,d) => a+gv(d), 0) : null; }),
+      borderColor: YC[y], backgroundColor: YC[y]+'22', tension:.3, pointRadius:2, borderWidth:2, fill:false, spanGaps:true
+    };
+  });
+  makeLeg('evol-leg', yrs.map(y => [String(y), YC[y]]));
+  if (cEvol) cEvol.destroy();
+  cEvol = new Chart(document.getElementById('cEvol'), {
+    type:'line', data:{labels:MESES.map(m=>m.slice(0,3)), datasets:evolDs},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}}},
+      scales:{
+        x:{ticks:{font:{size:10}, autoSkip:false, maxRotation:0}, grid:{color:'rgba(128,128,128,.08)'}},
+        y:{ticks:{font:{size:10}, callback:v=>fmtEje(v)}, grid:{color:'rgba(128,128,128,.08)'}}
+      }}
+  });
+
+  const tbl = document.getElementById('tComp');
+  let html = `<thead><tr><th>Mes</th>${years.map(y=>`<th>${y}</th>`).join('')}<th>Total</th></tr></thead><tbody>`;
+  const colTot = Object.fromEntries(years.map(y=>[y,0]));
+  let grand = 0;
+  MESES.forEach(mes => {
+    const vals = years.map(y => { const ag = data.filter(d=>d.a===y&&d.m===mes); return ag.length ? ag.reduce((a,d)=>a+gv(d),0) : null; });
+    const tot = vals.reduce((a,v)=>a+(v||0),0);
+    const maxV = Math.max(...vals.filter(v=>v!==null));
+    const minV = Math.min(...vals.filter(v=>v!==null));
+    years.forEach((y,i) => { if(vals[i]!==null) colTot[y]+=vals[i]||0; });
+    grand += tot;
+    html += `<tr><td>${mes.slice(0,3)}</td>${vals.map(v=>v===null?`<td style="color:var(--text3)">—</td>`:`<td class="${v===maxV&&maxV>0?'best':''}${v===minV&&vals.filter(x=>x!==null).length>1&&minV>0?'worst':''}">${fmt(v)}</td>`).join('')}<td style="color:var(--text2)">${fmt(tot)}</td></tr>`;
+  });
+  html += `<tr><td>Total</td>${years.map(y=>`<td>${fmt(colTot[y])}</td>`).join('')}<td>${fmt(grand)}</td></tr></tbody>`;
+  tbl.innerHTML = html;
+
+  const sucF = sc === 'all' ? SUCS : [sc];
+  const barData = sucF.map(s => { const d = RAW.find(d=>d.a===lastYear&&d.m===lastMes&&d.s===s); return {s, t:d?d.t:0, i:d?d.i:0}; });
+  const maxBar = Math.max(...barData.map(d=>metric==='ticket'?d.t:d.i), 1);
+  document.getElementById('hbar-title').textContent = `${lastMes} ${lastYear} — por sucursal`;
+  document.getElementById('hbars').innerHTML = barData.map(d => {
+    const v = metric==='ticket'?d.t:d.i;
+    const pct = Math.round(v/maxBar*100);
+    return `<div class="hbar-row"><div class="hbar-lbl">${d.s}</div><div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${SC[d.s]}">${pct>40?fmt(v):''}</div></div><div class="hbar-amt">${pct<=40?fmt(v):''}</div></div>`;
+  }).join('');
+
+  const sucAgg = agg(data.filter(d=>d.a===lastYear), ['s']);
+  const pieL = SUCS.filter(s => sucAgg.find(d=>d.s===s));
+  const pieV = pieL.map(s => { const f=sucAgg.find(d=>d.s===s); return f ? (pieMetric==='ticket'?f.t:f.i) : 0; });
+  const pieT = pieV.reduce((a,v)=>a+v,0);
+  const pieFmt = pieMetric === 'ticket' ? fmtT : fmtCorto;
+  document.getElementById('pie-title').textContent = `Participación ${pieMetric==='ticket'?'tickets':'pesos'} (año en curso)`;
+  makeLeg('pie-leg', pieL.map((s,i) => [`${s} ${pieT?Math.round(pieV[i]/pieT*100):0}%`, SC[s]]));
+  if (cPie) cPie.destroy();
+  cPie = new Chart(document.getElementById('cPie'), {
+    type:'doughnut', data:{labels:pieL, datasets:[{data:pieV, backgroundColor:pieL.map(s=>SC[s]), borderWidth:0}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${pieFmt(ctx.parsed)}`}}}}
+  });
+
+  makeLeg('anual-leg', years.map(y=>[String(y), YC[y]]));
+  if (cAnual) cAnual.destroy();
+  cAnual = new Chart(document.getElementById('cAnual'), {
+    type:'bar',
+    data:{labels:MESES.map(m=>m.slice(0,3)), datasets:years.map(y=>({
+      label:String(y),
+      data:MESES.map(m=>{ const ag=data.filter(d=>d.a===y&&d.m===m); return ag.length?ag.reduce((a,d)=>a+d.t,0):null; }),
+      backgroundColor:YC[y]+'cc', borderColor:YC[y], borderWidth:1, borderRadius:2, spanGaps:false
+    }))},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtT(ctx.parsed.y)}`}}},
+      scales:{
+        x:{ticks:{font:{size:10}, autoSkip:false, maxRotation:0}, grid:{display:false}},
+        y:{ticks:{font:{size:10}, callback:v=>v.toLocaleString('es-AR')}, grid:{color:'rgba(128,128,128,.08)'}}
+      }}
+  });
+
+  updateVolatility();
+  updateProj();
+}
+
+function updateVolatility() {
+  let nM = 0;
+  const tbl = document.getElementById('tVolatility');
+  let html = `<thead><tr><th>Sucursal</th><th>Promedio</th><th>Desv. Est.</th><th>Coef. Var.</th><th>Estabilidad</th></tr></thead><tbody>`;
+  SUCS.forEach(suc => {
+    const vals = RAW.filter(d=>d.s===suc).map(d=>d.t);
+    nM = Math.max(nM, vals.length);
+    const mean = vals.reduce((a,v)=>a+v,0)/vals.length;
+    const std = vals.length>1 ? Math.sqrt(vals.reduce((a,v)=>a+Math.pow(v-mean,2),0)/vals.length) : 0;
+    const cv = mean>0?(std/mean*100).toFixed(1):0;
+    const estab = cv<10?'Muy estable':cv<20?'Estable':cv<30?'Moderada':'Volátil';
+    html += `<tr><td>${suc}</td><td>${fmtT(Math.round(mean))}</td><td>${fmtT(Math.round(std))}</td><td>${cv}%</td><td>${estab}</td></tr>`;
+  });
+  tbl.innerHTML = html + '</tbody>';
+  const el = document.getElementById('note-nmeses');
+  if (el) el.textContent = nM;
+}
+
+function updateProj() {
+  const mes = document.getElementById('sel-mes').value;
+  const dias = parseInt(document.getElementById('sl-dias').value);
+  const mn = MESES.indexOf(mes);
+  const diasMes = MESES_DIAS[mn] || 30;
+  const sc = document.getElementById('sel-suc').value;
+  const lastYear = Math.max(...[...new Set(RAW.map(d=>d.a))]);
+  const d = RAW.filter(d=>d.a===lastYear&&d.m===mes&&(sc==='all'||d.s===sc));
+  const tAct = d.reduce((a,x)=>a+x.t,0);
+  const iAct = d.reduce((a,x)=>a+x.i,0);
+  const pxd = dias>0?Math.round(tAct/dias):0;
+  const proj = Math.round(pxd*diasMes);
+  document.getElementById('proj-rows').innerHTML = `
+    <div class="proj-row"><span class="proj-key">Tickets al día ${dias}</span><span class="proj-val">${fmtT(tAct)}</span></div>
+    <div class="proj-row"><span class="proj-key">Promedio tickets/día</span><span class="proj-val">${fmtT(pxd)}</span></div>
+    <div class="proj-row"><span class="proj-key">Días del mes</span><span class="proj-val">${diasMes}</span></div>
+    <div class="proj-row" style="border:none;padding-top:8px"><span class="proj-key" style="font-weight:600;color:var(--text)">Ticket proyectado</span><span class="proj-val proj-big">${fmtT(proj)}</span></div>
+    <div class="proj-row" style="border:none"><span class="proj-key">Venta $ actual</span><span class="proj-val" style="font-size:12px">${fmtI(iAct)}</span></div>`;
+}
+
+// ── Reparto Tucumán ─────────────────────────────────────────────────────────────
+function repartoDisponible() {
+  return typeof RAW_REPARTO !== 'undefined' && Array.isArray(RAW_REPARTO) && RAW_REPARTO.length > 0;
+}
+
+function repartoAgg() {
+  const map = {};
+  RAW_REPARTO.forEach(r => {
+    const key = r.a + '-' + String(r.mn).padStart(2, '0');
+    if (!map[key]) map[key] = { a: r.a, mn: r.mn, total: 0, ventas: 0, clientes: new Set(), cobrado: 0 };
+    const m = map[key];
+    m.total += r.t; m.ventas++; m.clientes.add(r.c);
+    if (r.e === 'Cobrado') m.cobrado += r.t;
+  });
+  return Object.keys(map).sort().map(k => {
+    const m = map[k];
+    return {
+      key: k, a: m.a, mn: m.mn, total: m.total, ventas: m.ventas,
+      clientes: m.clientes.size, cobrado: m.cobrado,
+      ticketProm: m.ventas ? m.total / m.ventas : 0,
+      pctCobrado: m.total ? (m.cobrado / m.total * 100) : 0
+    };
+  });
+}
+
+function updateReparto() {
+  const contentEl = document.getElementById('rep-content');
+  const emptyEl = document.getElementById('rep-empty');
+  if (!repartoDisponible()) {
+    contentEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  contentEl.style.display = '';
+  emptyEl.style.display = 'none';
+
+  const meses = repartoAgg();
+  const totalVendido = RAW_REPARTO.reduce((a, r) => a + r.t, 0);
+  const totalVentas = RAW_REPARTO.length;
+  const clientesUnicos = new Set(RAW_REPARTO.map(r => r.c)).size;
+  const ticketProm = totalVentas ? totalVendido / totalVentas : 0;
+  const fechas = RAW_REPARTO.map(r => r.f).sort();
+
+  const fechaHoy = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const piRep = document.getElementById('print-info-rep');
+  if (piRep) piRep.innerHTML = `Reparto Tucumán &nbsp;·&nbsp; Rango: <b>${fechas[0]} a ${fechas[fechas.length-1]}</b> &nbsp;·&nbsp; Generado: <b>${fechaHoy}</b>`;
+
+  document.getElementById('rep-nventas').textContent = totalVentas.toLocaleString('es-AR');
+  document.getElementById('rep-rango').textContent = `${fechas[0]} y ${fechas[fechas.length-1]}`;
+
+  // Alerta: caída mes actual vs anterior
+  const alertEl = document.getElementById('alert-reparto');
+  if (meses.length >= 2) {
+    const actual = meses[meses.length - 1];
+    const anterior = meses[meses.length - 2];
+    const varMes = anterior.total > 0 ? ((actual.total - anterior.total) / anterior.total * 100) : 0;
+    alertEl.innerHTML = varMes < -20
+      ? `<div class="alert-box"><div class="alert-title">⚠️ El reparto cayó ${Math.abs(Math.round(varMes))}% vs el mes anterior</div><ul><li>${MESES_ABR[actual.mn-1]} ${actual.a}: ${fmtI(actual.total)} — ${MESES_ABR[anterior.mn-1]} ${anterior.a}: ${fmtI(anterior.total)}</li><li>Si el mes está en curso, esta comparación puede no ser representativa aún</li></ul></div>`
+      : '';
+  } else {
+    alertEl.innerHTML = '';
+  }
+
+  // KPIs
+  document.getElementById('rep-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-lbl">Total vendido</div><div class="kpi-val" style="font-size:17px">${fmtI(totalVendido)}</div><div class="kpi-sub">acumulado del período</div></div>
+    <div class="kpi"><div class="kpi-lbl">Ventas realizadas</div><div class="kpi-val">${totalVentas.toLocaleString('es-AR')}</div><div class="kpi-sub">facturas emitidas</div></div>
+    <div class="kpi"><div class="kpi-lbl">Clientes únicos</div><div class="kpi-val">${clientesUnicos}</div><div class="kpi-sub">atendidos en el período</div></div>
+    <div class="kpi"><div class="kpi-lbl">Ticket promedio</div><div class="kpi-val" style="font-size:17px">${fmtI(ticketProm)}</div><div class="kpi-sub">por venta</div></div>
+  `;
+
+  const labels = meses.map(m => MESES_ABR[m.mn - 1] + ' ' + String(m.a).slice(2));
+
+  // Chart combo: monto (barras) + ventas (línea, eje secundario)
+  makeLeg('rep-evol-leg', [['Monto vendido', '#3266ad'], ['Cantidad de ventas', '#D85A30']]);
+  if (cRepMonto) cRepMonto.destroy();
+  cRepMonto = new Chart(document.getElementById('cRepMonto'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar', label: 'Monto vendido', data: meses.map(m => m.total), backgroundColor: '#3266adcc', borderColor: '#3266ad', borderWidth: 1, borderRadius: 2, yAxisID: 'y' },
+        { type: 'line', label: 'Cantidad de ventas', data: meses.map(m => m.ventas), borderColor: '#D85A30', backgroundColor: '#D85A30', tension: .3, pointRadius: 3, borderWidth: 2, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'y' ? `Monto: ${fmtCorto(ctx.parsed.y)}` : `Ventas: ${ctx.parsed.y}` } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { position: 'left', ticks: { font: { size: 10 }, callback: v => fmtCorto(v) }, grid: { color: 'rgba(128,128,128,.08)' } },
+        y1: { position: 'right', ticks: { font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Chart clientes por mes
+  if (cRepClientes) cRepClientes.destroy();
+  cRepClientes = new Chart(document.getElementById('cRepClientes'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Clientes', data: meses.map(m => m.clientes), backgroundColor: '#7F77DDcc', borderColor: '#7F77DD', borderWidth: 1, borderRadius: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `Clientes: ${ctx.parsed.y}` } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, precision: 0 }, grid: { color: 'rgba(128,128,128,.08)' } }
+      }
+    }
+  });
+
+  // Tabla mensual
+  let html = `<thead><tr><th>Mes</th><th>Total $</th><th>Ventas</th><th>Ticket prom.</th><th>Clientes</th><th>% Cobrado</th></tr></thead><tbody>`;
+  meses.forEach(m => {
+    html += `<tr><td>${MESES_ABR[m.mn-1]} ${m.a}</td><td>${fmtI(m.total)}</td><td>${m.ventas}</td><td>${fmtI(m.ticketProm)}</td><td>${m.clientes}</td><td>${m.pctCobrado.toFixed(0)}%</td></tr>`;
+  });
+  html += `<tr><td>Total</td><td>${fmtI(totalVendido)}</td><td>${totalVentas}</td><td>${fmtI(ticketProm)}</td><td>${clientesUnicos}</td><td>—</td></tr></tbody>`;
+  document.getElementById('tRepMensual').innerHTML = html;
+
+  // Top clientes históricos
+  const porCliente = {};
+  RAW_REPARTO.forEach(r => { porCliente[r.c] = (porCliente[r.c] || 0) + r.t; });
+  const topClientes = Object.entries(porCliente).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const maxCliente = topClientes.length ? topClientes[0][1] : 1;
+  document.getElementById('rep-topclientes').innerHTML = topClientes.map(([nombre, total]) => {
+    const pct = Math.round(total / maxCliente * 100);
+    return `<div class="hbar-row"><div class="hbar-lbl" title="${nombre}">${nombre}</div><div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:#3266ad">${pct>45?fmtCorto(total):''}</div></div><div class="hbar-amt">${pct<=45?fmtCorto(total):''}</div></div>`;
+  }).join('');
+
+  // Selector "Clientes por mes"
+  const selMes = document.getElementById('rep-sel-mes');
+  const valorPrevio = selMes.value;
+  selMes.innerHTML = meses.map(m => `<option value="${m.key}">${MESES_ABR[m.mn-1]} ${m.a}</option>`).join('');
+  if (valorPrevio && meses.some(m => m.key === valorPrevio)) selMes.value = valorPrevio;
+  else selMes.value = meses[meses.length - 1].key; // último mes por defecto
+  updateRepClientesMes();
+}
+
+function updateRepClientesMes() {
+  const key = document.getElementById('rep-sel-mes').value;
+  const ventasMes = RAW_REPARTO.filter(r => (r.a + '-' + String(r.mn).padStart(2, '0')) === key);
+
+  const porCliente = {};
+  ventasMes.forEach(r => {
+    if (!porCliente[r.c]) porCliente[r.c] = { total: 0, ventas: 0, cobrado: 0 };
+    const c = porCliente[r.c];
+    c.total += r.t; c.ventas++;
+    if (r.e === 'Cobrado') c.cobrado += r.t;
+  });
+
+  const filas = Object.entries(porCliente).sort((a, b) => b[1].total - a[1].total);
+  const totalMes = filas.reduce((a, [, c]) => a + c.total, 0);
+  const ventasTotalesMes = filas.reduce((a, [, c]) => a + c.ventas, 0);
+
+  document.getElementById('rep-mes-resumen').textContent =
+    `${filas.length} clientes · ${ventasTotalesMes} ventas · ${fmtI(totalMes)} total`;
+
+  let html = `<thead><tr><th>Cliente</th><th>Monto</th><th>Ventas</th><th>Ticket prom.</th><th>% del mes</th><th>% Cobrado</th></tr></thead><tbody>`;
+  filas.forEach(([nombre, c]) => {
+    const pctMes = totalMes ? (c.total / totalMes * 100) : 0;
+    const pctCobrado = c.total ? (c.cobrado / c.total * 100) : 0;
+    html += `<tr><td>${nombre}</td><td>${fmtI(c.total)}</td><td>${c.ventas}</td><td>${fmtI(c.total / c.ventas)}</td><td>${pctMes.toFixed(1)}%</td><td>${pctCobrado.toFixed(0)}%</td></tr>`;
+  });
+  html += `<tr><td>Total</td><td>${fmtI(totalMes)}</td><td>${ventasTotalesMes}</td><td>${fmtI(ventasTotalesMes ? totalMes / ventasTotalesMes : 0)}</td><td>100%</td><td>—</td></tr></tbody>`;
+  document.getElementById('tRepClientesMes').innerHTML = html;
+}
+
+// ── Finanzas personales (retiros) ────────────────────────────────────────────
+function finanzasDisponible() {
+  return typeof RAW_RETIROS !== 'undefined' && Array.isArray(RAW_RETIROS) && RAW_RETIROS.length > 0;
+}
+
+(function initLimiteGuardado() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const guardado = localStorage.getItem('limite-retiros-emanuel');
+    const input = document.getElementById('fin-limite');
+    if (guardado && input) input.value = guardado;
+    const excluir = localStorage.getItem('excluir-aguinaldo-emanuel');
+    const check = document.getElementById('fin-excluir-aguinaldo');
+    if (excluir !== null && check) check.checked = excluir === '1';
+  });
+})();
+
+function updateFinanzas() {
+  const contentEl = document.getElementById('fin-content');
+  const emptyEl = document.getElementById('fin-empty');
+  if (!finanzasDisponible()) {
+    contentEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  contentEl.style.display = '';
+  emptyEl.style.display = 'none';
+
+  const limiteInput = document.getElementById('fin-limite');
+  const limite = parseFloat(limiteInput.value) || 0;
+  localStorage.setItem('limite-retiros-emanuel', limite);
+
+  const excluirAguinaldo = document.getElementById('fin-excluir-aguinaldo').checked;
+  localStorage.setItem('excluir-aguinaldo-emanuel', excluirAguinaldo ? '1' : '0');
+  const esAguinaldo = m => m.mn === 6 || m.mn === 12;
+
+  const meses = [...RAW_RETIROS].sort((a, b) => (a.a - b.a) || (a.mn - b.mn));
+  const mesesParaProm = excluirAguinaldo ? meses.filter(m => !esAguinaldo(m)) : meses;
+  const totalRetirado = meses.reduce((a, m) => a + m.total, 0);
+  const promedio = mesesParaProm.length ? mesesParaProm.reduce((a, m) => a + m.total, 0) / mesesParaProm.length : 0;
+  const mesesExcedidos = mesesParaProm.filter(m => m.total > limite).length;
+  const ultimoMes = meses[meses.length - 1];
+
+  const fechaHoy = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const piFin = document.getElementById('print-info-fin');
+  if (piFin) piFin.innerHTML = `Finanzas Personales &nbsp;·&nbsp; Límite mensual: <b>${fmtI(limite)}</b> &nbsp;·&nbsp; Generado: <b>${fechaHoy}</b>`;
+
+  // Alerta
+  const alertEl = document.getElementById('alert-finanzas');
+  const etiquetaProm = excluirAguinaldo ? 'promedio (sin Jun/Dic)' : 'promedio mensual';
+  if (promedio > limite) {
+    const excesoProm = promedio - limite;
+    alertEl.innerHTML = `<div class="alert-box"><div class="alert-title">⚠️ Tu ${etiquetaProm} (${fmtI(promedio)}) supera el límite en ${fmtI(excesoProm)}</div><ul><li>Superaste el límite en ${mesesExcedidos} de ${mesesParaProm.length} meses considerados</li></ul></div>`;
+  } else {
+    alertEl.innerHTML = '';
+  }
+
+  // KPIs
+  const colorProm = promedio > limite ? '#E24B4A' : '#1D9E75';
+  document.getElementById('fin-kpis').innerHTML = `
+    <div class="kpi ${promedio > limite ? 'alert' : ''}"><div class="kpi-lbl">${excluirAguinaldo ? 'Promedio (sin Jun/Dic)' : 'Promedio mensual'}</div><div class="kpi-val" style="font-size:17px;color:${promedio > limite ? '#712B13' : 'var(--text)'}">${fmtI(promedio)}</div><div class="kpi-sub" style="color:${colorProm}">${promedio > limite ? '▲ supera el límite' : '▼ dentro del límite'}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Límite mensual</div><div class="kpi-val" style="font-size:17px">${fmtI(limite)}</div><div class="kpi-sub">definido por vos</div></div>
+    <div class="kpi"><div class="kpi-lbl">Total retirado</div><div class="kpi-val" style="font-size:17px">${fmtI(totalRetirado)}</div><div class="kpi-sub">${meses.length} meses (incl. aguinaldo)</div></div>
+    <div class="kpi"><div class="kpi-lbl">Meses que excedieron</div><div class="kpi-val">${mesesExcedidos} / ${mesesParaProm.length}</div><div class="kpi-sub">${ultimoMes ? MESES_ABR[ultimoMes.mn-1]+' '+ultimoMes.a+': '+fmtI(ultimoMes.total) : ''}</div></div>
+  `;
+
+  // Gráfico
+  const labels = meses.map(m => MESES_ABR[m.mn - 1] + ' ' + m.a);
+  makeLeg('fin-evol-leg', [['Retiro', '#3266ad'], ['Transf. Burzaco', '#7F77DD'], ['Límite', '#E24B4A']]);
+  if (cFinEvol) cFinEvol.destroy();
+  cFinEvol = new Chart(document.getElementById('cFinEvol'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar', label: 'Retiro', data: meses.map(m => m.retiro), backgroundColor: '#3266adcc', borderColor: '#3266ad', borderWidth: 1, borderRadius: 2, stack: 's' },
+        { type: 'bar', label: 'Transf. Burzaco', data: meses.map(m => m.transf), backgroundColor: '#7F77DDcc', borderColor: '#7F77DD', borderWidth: 1, borderRadius: 2, stack: 's' },
+        { type: 'line', label: 'Límite', data: meses.map(() => limite), borderColor: '#E24B4A', borderWidth: 2, borderDash: [6, 4], pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtI(ctx.parsed.y)}` } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, callback: v => fmtCorto(v) }, grid: { color: 'rgba(128,128,128,.08)' } }
+      }
+    }
+  });
+
+  // Tabla
+  let html = `<thead><tr><th>Mes</th><th>Retiro</th><th>Transf. Burzaco</th><th>Total</th><th>vs. Límite</th></tr></thead><tbody>`;
+  meses.forEach(m => {
+    const dif = m.total - limite;
+    const excede = dif > 0;
+    const badge = esAguinaldo(m) ? ' <span style="font-size:10px;color:var(--text2)" title="Incluye medio aguinaldo">🎁</span>' : '';
+    html += `<tr><td>${MESES_ABR[m.mn-1]} ${m.a}${badge}</td><td>${fmtI(m.retiro)}</td><td>${fmtI(m.transf)}</td><td class="${excede?'worst':'best'}">${fmtI(m.total)}</td><td class="${excede?'worst':'best'}">${excede?'+':''}${fmtI(dif)}</td></tr>`;
+  });
+  const promRetiro = mesesParaProm.reduce((a,m)=>a+m.retiro,0) / mesesParaProm.length;
+  const promTransf = mesesParaProm.reduce((a,m)=>a+m.transf,0) / mesesParaProm.length;
+  html += `<tr><td>Promedio${excluirAguinaldo ? ' (sin 🎁)' : ''}</td><td>${fmtI(promRetiro)}</td><td>${fmtI(promTransf)}</td><td class="${promedio>limite?'worst':'best'}">${fmtI(promedio)}</td><td class="${promedio>limite?'worst':'best'}">${promedio>limite?'+':''}${fmtI(promedio-limite)}</td></tr></tbody>`;
+  document.getElementById('tFinMensual').innerHTML = html;
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
